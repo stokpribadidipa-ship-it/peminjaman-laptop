@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Peminjaman | Laptop School</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['admin']);
+            if (!session) return;
+
+            function loadTable() {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]');
+                const search = document.getElementById('searchInput')?.value || '';
+                const filtered = data.filter((item) => {
+                    const siswa = getSiswaById(item.siswaId);
+                    const laptop = getLaptopById(item.laptopId);
+                    const matchesSearch = !search || [item.kode, siswa?.nama, laptop?.kode, item.status].some((value) => String(value || '').toLowerCase().includes(search.toLowerCase()));
+                    return matchesSearch;
+                });
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => {
+                    const siswa = getSiswaById(item.siswaId);
+                    const laptop = getLaptopById(item.laptopId);
+                    return `
+              <tr class="border-t border-slate-200 text-sm">
+                <td class="py-3">${item.kode}</td>
+                <td class="py-3">${siswa ? siswa.nama : '-'}</td>
+                <td class="py-3">${laptop ? laptop.kode : '-'}</td>
+                <td class="py-3">${formatDate(item.tanggalPengajuan)}</td>
+                <td class="py-3">${formatDate(item.tanggalPinjam)}</td>
+                <td class="py-3">${formatDate(item.tanggalRencanaKembali)}</td>
+                <td class="py-3"><span class="badge ${getStatusClass(item.status)}">${item.status}</span></td>
+                <td class="py-3">${item.keperluan}</td>
+              </tr>
+            `;
+                }).join('');
+            }
+
+            renderPageShell({
+                role: 'admin',
+                title: 'Data Peminjaman',
+                subtitle: 'Kelola seluruh peminjaman',
+                currentPage: 'peminjaman.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari peminjaman..." />
+              </div>
+
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">Kode</th>
+                        <th class="pb-3">Siswa</th>
+                        <th class="pb-3">Laptop</th>
+                        <th class="pb-3">Pengajuan</th>
+                        <th class="pb-3">Pinjam</th>
+                        <th class="pb-3">Rencana Kembali</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Keperluan</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

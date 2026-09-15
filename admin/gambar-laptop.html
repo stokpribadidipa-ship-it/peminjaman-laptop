@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gambar Laptop | Laptop School</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['admin']);
+            if (!session) return;
+
+            function loadTable() {
+                const search = document.getElementById('searchInput')?.value || '';
+                const laptops = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const filtered = laptops.filter((item) => !search || [item.kode, item.nama, item.merk, item.model]
+                    .some((value) => String(value || '').toLowerCase().includes(search.toLowerCase())));
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => `
+                  <tr class="border-t border-slate-200 text-sm">
+                    <td class="py-3"><img src="${getLaptopImageUrl(item)}" alt="${item.merk} ${item.model}" class="h-16 w-24 rounded-lg object-cover" /></td>
+                    <td class="py-3"><p class="font-semibold text-slate-800">${item.kode}</p><p class="text-xs text-slate-500">${item.nama}</p></td>
+                    <td class="py-3">${item.merk}</td>
+                    <td class="py-3">${item.model}</td>
+                    <td class="py-3 max-w-xs truncate" title="${item.gambar || 'Gambar bawaan'}">${item.gambar || '<span class="text-slate-400">Gambar bawaan</span>'}</td>
+                    <td class="py-3">
+                      <div class="flex gap-2">
+                        <button type="button" class="icon-action rounded-lg bg-blue-50 text-blue-700" data-action="edit" data-id="${item.id}" title="Tambah atau ubah gambar" aria-label="Tambah atau ubah gambar"><i data-lucide="image-up" class="h-4 w-4"></i></button>
+                        <button type="button" class="icon-action rounded-lg bg-red-50 text-red-700" data-action="delete" data-id="${item.id}" title="Hapus gambar" aria-label="Hapus gambar"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('');
+
+                document.querySelectorAll('[data-action]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (button.dataset.action === 'edit') openForm(id);
+                        if (button.dataset.action === 'delete') deleteImage(id);
+                    });
+                });
+                lucide.createIcons();
+            }
+
+            function openForm(id) {
+                const laptops = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const laptop = laptops.find((item) => Number(item.id) === Number(id));
+                if (!laptop) return;
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+                  <div class="modal-panel w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                      <div><h3 class="text-xl font-bold text-slate-800">Gambar Laptop</h3><p class="text-sm text-slate-500">${laptop.kode} · ${laptop.merk} ${laptop.model}</p></div>
+                      <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    </div>
+                    <form id="imageForm" class="space-y-4">
+                      <img id="imagePreview" src="${getLaptopImageUrl(laptop)}" alt="Pratinjau gambar ${laptop.nama}" class="h-52 w-full rounded-2xl object-cover" />
+                      <div>
+                        <label class="label-text" for="imageUrl">Alamat Gambar</label>
+                        <input id="imageUrl" name="gambar" type="url" value="${laptop.gambar || ''}" class="input-field" placeholder="https://contoh.com/gambar-laptop.jpg" required />
+                        <p class="mt-1 text-xs text-slate-500">Gunakan URL gambar langsung dengan format http atau https.</p>
+                      </div>
+                      <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" class="close-modal rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Batal</button>
+                        <button type="submit" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white">Simpan Gambar</button>
+                      </div>
+                    </form>
+                  </div>
+                `;
+                document.body.appendChild(modal);
+
+                const closeModal = () => modal.remove();
+                modal.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', closeModal));
+                const input = modal.querySelector('#imageUrl');
+                const preview = modal.querySelector('#imagePreview');
+                input.addEventListener('input', () => {
+                    preview.src = input.value.trim() || getLaptopImageUrl(laptop);
+                });
+                preview.addEventListener('error', () => {
+                    preview.src = getLaptopImageUrl({});
+                });
+
+                modal.querySelector('#imageForm').addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    const gambar = input.value.trim();
+                    try {
+                        const url = new URL(gambar);
+                        if (!['http:', 'https:'].includes(url.protocol)) throw new Error('invalid');
+                    } catch (error) {
+                        showToast('Masukkan alamat gambar http atau https yang valid.', 'error');
+                        return;
+                    }
+
+                    const index = laptops.findIndex((item) => Number(item.id) === Number(id));
+                    laptops[index] = { ...laptops[index], gambar };
+                    localStorage.setItem(STORAGE_KEYS.laptops, JSON.stringify(laptops));
+                    closeModal();
+                    loadTable();
+                    showToast('Gambar laptop berhasil disimpan.', 'success');
+                });
+                lucide.createIcons();
+            }
+
+            function deleteImage(id) {
+                const laptops = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const laptop = laptops.find((item) => Number(item.id) === Number(id));
+                if (!laptop?.gambar) {
+                    showToast('Laptop ini sudah menggunakan gambar bawaan.', 'warning');
+                    return;
+                }
+                if (!window.confirm(`Hapus gambar untuk ${laptop.nama}?`)) return;
+
+                const index = laptops.findIndex((item) => Number(item.id) === Number(id));
+                laptops[index] = { ...laptops[index], gambar: '' };
+                localStorage.setItem(STORAGE_KEYS.laptops, JSON.stringify(laptops));
+                loadTable();
+                showToast('Gambar laptop dihapus. Gambar bawaan digunakan.', 'success');
+            }
+
+            renderPageShell({
+                role: 'admin',
+                title: 'Gambar Laptop',
+                subtitle: 'Kelola gambar inventaris laptop',
+                currentPage: 'gambar-laptop.html',
+                content: `
+                  <div class="space-y-4">
+                    <div class="card rounded-2xl p-4">
+                      <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari laptop..." />
+                    </div>
+                    <div class="card rounded-2xl p-4">
+                      <div class="mb-4 flex items-start gap-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-800"><i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0"></i><p>Tambahkan atau ubah gambar menggunakan alamat URL gambar langsung. Gambar akan tampil pada halaman laptop Admin, Petugas, dan Siswa.</p></div>
+                      <div class="table-wrap"><table><thead><tr class="text-left text-sm text-slate-500"><th class="pb-3">Gambar</th><th class="pb-3">Laptop</th><th class="pb-3">Merk</th><th class="pb-3">Model</th><th class="pb-3">Alamat Gambar</th><th class="pb-3">Aksi</th></tr></thead><tbody id="tableBody"></tbody></table></div>
+                    </div>
+                  </div>
+                `
+            });
+
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

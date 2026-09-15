@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pengaturan | Laptop School</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['admin']);
+            if (!session) return;
+
+            renderPageShell({
+                role: 'admin',
+                title: 'Pengaturan',
+                subtitle: 'Kelola preferensi aplikasi',
+                currentPage: 'pengaturan.html',
+                content: `
+            <div class="space-y-6">
+              <div class="card rounded-2xl p-5">
+                <h3 class="text-lg font-bold text-slate-800">Preferensi aplikasi</h3>
+                <div class="mt-4 space-y-4">
+                  <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div>
+                      <p class="font-semibold text-slate-800">Reset data dummy</p>
+                      <p class="text-sm text-slate-500">Mengembalikan data contoh ke kondisi awal.</p>
+                    </div>
+                    <button type="button" id="resetData" class="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white">Reset</button>
+                  </div>
+                  <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div>
+                      <p class="font-semibold text-slate-800">Status aplikasi</p>
+                      <p class="text-sm text-slate-500">Frontend prototype berjalan di browser.</p>
+                    </div>
+                    <span class="badge status-available">Prototype</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('resetData').addEventListener('click', () => {
+                const confirmed = window.confirm('Reset semua data dummy dan session?');
+                if (!confirmed) return;
+
+                localStorage.clear();
+                ensureSeedData();
+                window.location.reload();
+            });
+
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

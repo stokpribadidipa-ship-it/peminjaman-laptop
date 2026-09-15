@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Laptop | Laptop School</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['admin']);
+            if (!session) return;
+
+            function loadTable() {
+                const search = document.getElementById('searchInput')?.value || '';
+                const filterStatus = document.getElementById('filterStatus')?.value || 'Semua';
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const filtered = data.filter((item) => {
+                    const matchesSearch = !search || [item.kode, item.nama, item.merk, item.model, item.lokasi].some((value) => String(value).toLowerCase().includes(search.toLowerCase()));
+                    const matchesStatus = filterStatus === 'Semua' || item.status === filterStatus;
+                    return matchesSearch && matchesStatus;
+                });
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => `
+            <tr class="border-t border-slate-200 text-sm">
+              <td class="py-3">${item.id}</td>
+              <td class="py-3"><img src="${getLaptopImageUrl(item)}" alt="${item.merk} ${item.model}" class="h-12 w-16 rounded-lg object-cover" /></td>
+              <td class="py-3">${item.kode}</td>
+              <td class="py-3">${item.nama}</td>
+              <td class="py-3">${item.merk}</td>
+              <td class="py-3">${item.model}</td>
+              <td class="py-3">${item.status}</td>
+              <td class="py-3">${item.kondisi}</td>
+              <td class="py-3">${item.lokasi}</td>
+              <td class="py-3">
+                <div class="flex gap-2">
+                  <button type="button" class="icon-action rounded-lg bg-blue-50 text-blue-700" data-action="detail" data-id="${item.id}" title="Detail laptop" aria-label="Detail laptop"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                  <button type="button" class="icon-action rounded-lg bg-amber-50 text-amber-700" data-action="edit" data-id="${item.id}" title="Edit laptop" aria-label="Edit laptop"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+                  <button type="button" class="icon-action rounded-lg bg-red-50 text-red-700" data-action="delete" data-id="${item.id}" title="Hapus laptop" aria-label="Hapus laptop"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+
+                document.querySelectorAll('[data-action]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (button.dataset.action === 'detail') showDetail(id);
+                        if (button.dataset.action === 'edit') openForm(id);
+                        if (button.dataset.action === 'delete') deleteRecord(id);
+                    });
+                });
+            }
+
+            function showDetail(id) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                if (!item) return;
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+            <div class="modal-panel w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">Detail Laptop</h3>
+                <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <img src="${getLaptopImageUrl(item)}" alt="${item.merk} ${item.model}" class="mb-5 h-48 w-full rounded-2xl object-cover" />
+              <div class="grid grid-cols-2 gap-4 text-sm text-slate-600">
+                <div><p class="text-slate-500">Kode</p><p class="font-semibold text-slate-800">${item.kode}</p></div>
+                <div><p class="text-slate-500">Nama</p><p class="font-semibold text-slate-800">${item.nama}</p></div>
+                <div><p class="text-slate-500">Merk</p><p class="font-semibold text-slate-800">${item.merk}</p></div>
+                <div><p class="text-slate-500">Model</p><p class="font-semibold text-slate-800">${item.model}</p></div>
+                <div><p class="text-slate-500">Processor</p><p class="font-semibold text-slate-800">${item.processor}</p></div>
+                <div><p class="text-slate-500">RAM</p><p class="font-semibold text-slate-800">${item.ram}</p></div>
+                <div><p class="text-slate-500">Storage</p><p class="font-semibold text-slate-800">${item.storage}</p></div>
+                <div><p class="text-slate-500">Status</p><p class="font-semibold text-slate-800">${item.status}</p></div>
+                <div><p class="text-slate-500">Kondisi</p><p class="font-semibold text-slate-800">${item.kondisi}</p></div>
+                <div><p class="text-slate-500">Lokasi</p><p class="font-semibold text-slate-800">${item.lokasi}</p></div>
+              </div>
+            </div>
+          `;
+                document.body.appendChild(modal);
+                modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+                lucide.createIcons();
+            }
+
+            function openForm(id = null) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+            <div class="modal-panel w-full max-w-3xl rounded-3xl bg-white p-5 shadow-2xl">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">${id ? 'Edit Laptop' : 'Tambah Laptop'}</h3>
+                <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <form id="formLaptop" class="space-y-4">
+                <div class="form-grid">
+                  <div>
+                    <label class="label-text">Kode Laptop</label>
+                    <input name="kode" value="${item?.kode || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Nama</label>
+                    <input name="nama" value="${item?.nama || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Merk</label>
+                    <input name="merk" value="${item?.merk || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Model</label>
+                    <input name="model" value="${item?.model || ''}" class="input-field" required />
+                  </div>
+                  <div class="col-span-full">
+                    <label class="label-text">URL Gambar Laptop</label>
+                    <input name="gambar" type="url" value="${item?.gambar || ''}" class="input-field" placeholder="https://contoh.com/gambar-laptop.jpg" />
+                    <p class="mt-1 text-xs text-slate-500">Masukkan alamat gambar. Kosongkan untuk memakai gambar bawaan.</p>
+                  </div>
+                  <div>
+                    <label class="label-text">Processor</label>
+                    <input name="processor" value="${item?.processor || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">RAM</label>
+                    <input name="ram" value="${item?.ram || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Storage</label>
+                    <input name="storage" value="${item?.storage || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Status</label>
+                    <select name="status" class="select-field" required>
+                      <option value="Tersedia" ${item?.status === 'Tersedia' ? 'selected' : ''}>Tersedia</option>
+                      <option value="Dipinjam" ${item?.status === 'Dipinjam' ? 'selected' : ''}>Dipinjam</option>
+                      <option value="Maintenance" ${item?.status === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+                      <option value="Rusak" ${item?.status === 'Rusak' ? 'selected' : ''}>Rusak</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label-text">Kondisi</label>
+                    <input name="kondisi" value="${item?.kondisi || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Lokasi</label>
+                    <input name="lokasi" value="${item?.lokasi || ''}" class="input-field" required />
+                  </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                  <button type="button" class="close-modal rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Batal</button>
+                  <button type="submit" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white">${id ? 'Simpan Perubahan' : 'Tambah Laptop'}</button>
+                </div>
+              </form>
+            </div>
+          `;
+                document.body.appendChild(modal);
+                modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+                modal.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', () => modal.remove()));
+
+                modal.querySelector('#formLaptop').addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    const formData = new FormData(event.target);
+                    const payload = Object.fromEntries(formData.entries());
+
+                    if (!payload.kode || !payload.nama || !payload.merk || !payload.model || !payload.processor || !payload.ram || !payload.storage || !payload.kondisi || !payload.lokasi) {
+                        showToast('Semua field wajib diisi.', 'error');
+                        return;
+                    }
+
+                    const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                    if (id) {
+                        const index = data.findIndex((entry) => Number(entry.id) === Number(id));
+                        data[index] = { ...data[index], ...payload };
+                    } else {
+                        data.push({ id: getNextId(data), ...payload });
+                    }
+
+                    localStorage.setItem(STORAGE_KEYS.laptops, JSON.stringify(data));
+                    modal.remove();
+                    loadTable();
+                    showToast(id ? 'Laptop berhasil diperbarui.' : 'Laptop berhasil ditambahkan.', 'success');
+                });
+
+                lucide.createIcons();
+            }
+
+            function deleteRecord(id) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                if (!item) return;
+
+                const confirmed = window.confirm(`Hapus laptop ${item.nama}?`);
+                if (!confirmed) return;
+
+                const filtered = data.filter((entry) => Number(entry.id) !== Number(id));
+                localStorage.setItem(STORAGE_KEYS.laptops, JSON.stringify(filtered));
+                loadTable();
+                showToast('Laptop berhasil dihapus.', 'success');
+            }
+
+            renderPageShell({
+                role: 'admin',
+                title: 'Data Laptop',
+                subtitle: 'Kelola inventaris laptop',
+                currentPage: 'laptop.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                    <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari laptop..." />
+                    <select id="filterStatus" class="select-field md:w-40">
+                      <option value="Semua">Semua Status</option>
+                      <option value="Tersedia">Tersedia</option>
+                      <option value="Dipinjam">Dipinjam</option>
+                      <option value="Maintenance">Maintenance</option>
+                      <option value="Rusak">Rusak</option>
+                    </select>
+                  </div>
+                  <button type="button" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white" id="addBtn">
+                    <span class="flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i>Tambah Laptop</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">ID</th>
+                        <th class="pb-3">Gambar</th>
+                        <th class="pb-3">Kode</th>
+                        <th class="pb-3">Nama</th>
+                        <th class="pb-3">Merk</th>
+                        <th class="pb-3">Model</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Kondisi</th>
+                        <th class="pb-3">Lokasi</th>
+                        <th class="pb-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('addBtn').addEventListener('click', () => openForm());
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            document.getElementById('filterStatus').addEventListener('change', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>
