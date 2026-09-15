@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ajukan Peminjaman | Laptop School</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['siswa']);
+            if (!session) return;
+
+            const laptops = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+            const availableLaptopOptions = laptops.filter((item) => item.status === 'Tersedia');
+
+            function renderForm() {
+                const formContainer = document.getElementById('formContainer');
+                formContainer.innerHTML = `
+            <form id="borrowForm" class="space-y-4">
+              <div class="form-grid">
+                <div>
+                  <label class="label-text">Laptop</label>
+                  <select name="laptopId" class="select-field" required>
+                    <option value="">Pilih laptop</option>
+                    ${availableLaptopOptions.map((item) => `<option value="${item.id}">${item.kode} - ${item.nama}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="label-text">Tanggal Pinjam</label>
+                  <input type="date" name="tanggalPinjam" class="input-field" required />
+                </div>
+                <div>
+                  <label class="label-text">Tanggal Rencana Kembali</label>
+                  <input type="date" name="tanggalRencanaKembali" class="input-field" required />
+                </div>
+                <div>
+                  <label class="label-text">Keperluan</label>
+                  <input type="text" name="keperluan" class="input-field" placeholder="Contoh: proyek desain" required />
+                </div>
+              </div>
+              <div>
+                <label class="label-text">Catatan</label>
+                <textarea name="catatan" rows="4" class="textarea-field" placeholder="Catatan tambahan (opsional)"></textarea>
+              </div>
+              <div class="flex justify-end">
+                <button type="submit" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white">Ajukan Peminjaman</button>
+              </div>
+            </form>
+          `;
+
+                document.getElementById('borrowForm').addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    const formData = new FormData(event.target);
+                    const payload = Object.fromEntries(formData.entries());
+
+                    if (!payload.laptopId || !payload.tanggalPinjam || !payload.tanggalRencanaKembali || !payload.keperluan) {
+                        showToast('Semua field wajib diisi.', 'error');
+                        return;
+                    }
+
+                    if (new Date(payload.tanggalPinjam) > new Date(payload.tanggalRencanaKembali)) {
+                        showToast('Tanggal pengembalian harus setelah tanggal pinjam.', 'error');
+                        return;
+                    }
+
+                    const peminjaman = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]');
+                    const laptop = laptops.find((item) => Number(item.id) === Number(payload.laptopId));
+                    if (!laptop || laptop.status !== 'Tersedia') {
+                        showToast('Laptop tidak tersedia saat ini.', 'error');
+                        return;
+                    }
+
+                    const active = peminjaman.find((item) => Number(item.siswaId) === Number(session.userId) && ['Menunggu', 'Disetujui', 'Dipinjam'].includes(item.status));
+                    if (active) {
+                        showToast('Anda masih memiliki peminjaman aktif.', 'error');
+                        return;
+                    }
+
+                    peminjaman.push({
+                        id: getNextId(peminjaman),
+                        kode: `PJ-${String(getNextId(peminjaman)).padStart(4, '0')}`,
+                        siswaId: Number(session.userId),
+                        laptopId: Number(payload.laptopId),
+                        tanggalPengajuan: getCurrentDate(),
+                        tanggalPinjam: payload.tanggalPinjam,
+                        tanggalRencanaKembali: payload.tanggalRencanaKembali,
+                        tanggalDikembalikan: '',
+                        keperluan: payload.keperluan,
+                        status: 'Menunggu',
+                        catatan: payload.catatan || 'Pengajuan baru.',
+                        petugasId: null
+                    });
+
+                    localStorage.setItem(STORAGE_KEYS.peminjaman, JSON.stringify(peminjaman));
+                    showToast('Peminjaman berhasil diajukan.', 'success');
+                    renderForm();
+                });
+            }
+
+            renderPageShell({
+                role: 'siswa',
+                title: 'Ajukan Peminjaman',
+                subtitle: 'Form pengajuan laptop',
+                currentPage: 'peminjaman.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <div id="formContainer"></div>
+              </div>
+            </div>
+          `
+            });
+
+            renderForm();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>
