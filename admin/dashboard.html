@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Admin | PinjamLaptop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb'
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['admin']);
+            if (!session) return;
+
+            const stats = calculateDashboardStats();
+            const recentPeminjaman = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]').slice().reverse().slice(0, 5);
+            const latestActivities = [
+                { title: 'Laptop LP-003 dipinjam', detail: 'Untuk tugas akhir semester', date: '2026-09-14' },
+                { title: 'Memeriksa kondisi laboratorium', detail: 'Petugas melakukan pengecekan', date: '2026-09-13' },
+                { title: 'Pengembalian LP-001 selesai', detail: 'Laptop telah kembali dan siap dipinjam', date: '2026-09-12' }
+            ];
+
+            renderPageShell({
+                role: 'admin',
+                title: 'Dashboard',
+                subtitle: 'Ringkasan operasional',
+                currentPage: 'dashboard.html',
+                content: `
+            <div class="space-y-6">
+              <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                ${buildStatCard('Total Laptop', stats.totalLaptop, 'laptop', 'blue', 'Semua unit tersedia dalam sistem')}
+                ${buildStatCard('Laptop Tersedia', stats.tersedia, 'check-circle', 'green', 'Siap dipinjam siswa')}
+                ${buildStatCard('Laptop Dipinjam', stats.dipinjam, 'handshake', 'indigo', 'Saat ini sedang dipakai')}
+                ${buildStatCard('Laptop Maintenance', stats.maintenance, 'wrench', 'orange', 'Perlu pengecekan ulang')}
+              </div>
+
+              <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                ${buildStatCard('Total Siswa', stats.totalSiswa, 'users', 'blue', 'Jumlah siswa aktif')}
+                ${buildStatCard('Total Peminjaman', stats.totalPeminjaman, 'clipboard-list', 'slate', 'Semua permintaan')}
+                ${buildStatCard('Menunggu', stats.menunggu, 'clock3', 'yellow', 'Permintaan belum diproses')}
+                ${buildStatCard('Selesai', stats.selesai, 'circle-check-big', 'green', 'Sudah dikembalikan')}
+              </div>
+
+              <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                <div class="card rounded-2xl p-4 md:p-5">
+                  <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-slate-800">Peminjaman terbaru</h3>
+                    <a href="peminjaman.html" class="text-sm font-medium text-blue-600">Lihat semua</a>
+                  </div>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr class="text-left text-sm text-slate-500">
+                          <th class="pb-3">Kode</th>
+                          <th class="pb-3">Siswa</th>
+                          <th class="pb-3">Laptop</th>
+                          <th class="pb-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${recentPeminjaman.map((item) => {
+                    const siswa = getSiswaById(item.siswaId);
+                    const laptop = getLaptopById(item.laptopId);
+                    return `
+                            <tr class="border-t border-slate-200 text-sm">
+                              <td class="py-3 font-medium text-slate-700">${item.kode}</td>
+                              <td class="py-3">${siswa ? siswa.nama : '-'}</td>
+                              <td class="py-3">${laptop ? laptop.kode : '-'}</td>
+                              <td class="py-3"><span class="badge ${getStatusClass(item.status)}">${item.status}</span></td>
+                            </tr>
+                          `;
+                }).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="card rounded-2xl p-4 md:p-5">
+                  <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-slate-800">Aktivitas terbaru</h3>
+                  </div>
+                  <div class="space-y-3">
+                    ${latestActivities.map((activity) => `
+                      <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p class="text-sm font-semibold text-slate-800">${activity.title}</p>
+                        <p class="mt-1 text-xs text-slate-500">${activity.detail}</p>
+                        <p class="mt-2 text-[11px] text-slate-400">${formatDate(activity.date)}</p>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

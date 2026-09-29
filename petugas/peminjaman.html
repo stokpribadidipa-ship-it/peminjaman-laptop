@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Permintaan Peminjaman | PinjamLaptop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['petugas']);
+            if (!session) return;
+
+            function loadTable() {
+                const peminjaman = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]');
+                const search = document.getElementById('searchInput')?.value || '';
+                const filtered = peminjaman.filter((item) => item.status === 'Menunggu');
+                const list = filtered.filter((item) => {
+                    const siswa = getSiswaById(item.siswaId);
+                    const laptop = getLaptopById(item.laptopId);
+                    return !search || [item.kode, siswa?.nama, laptop?.kode].some((value) => String(value || '').toLowerCase().includes(search.toLowerCase()));
+                });
+
+                document.getElementById('tableBody').innerHTML = list.map((item) => {
+                    const siswa = getSiswaById(item.siswaId);
+                    const laptop = getLaptopById(item.laptopId);
+                    return `
+              <tr class="border-t border-slate-200 text-sm">
+                <td class="py-3">${item.kode}</td>
+                <td class="py-3">${siswa?.nama || '-'}</td>
+                <td class="py-3">${laptop?.kode || '-'}</td>
+                <td class="py-3">${formatDate(item.tanggalPengajuan)}</td>
+                <td class="py-3">${item.keperluan}</td>
+                <td class="py-3">
+                  <div class="flex gap-2">
+                    <button type="button" class="icon-action rounded-lg bg-green-50 text-green-700" data-action="approve" data-id="${item.id}" title="Setujui peminjaman" aria-label="Setujui peminjaman"><i data-lucide="check" class="h-4 w-4"></i></button>
+                    <button type="button" class="icon-action rounded-lg bg-red-50 text-red-700" data-action="reject" data-id="${item.id}" title="Tolak peminjaman" aria-label="Tolak peminjaman"><i data-lucide="x" class="h-4 w-4"></i></button>
+                  </div>
+                </td>
+              </tr>
+            `;
+                }).join('');
+
+                document.querySelectorAll('[data-action]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (button.dataset.action === 'approve') approveRequest(id);
+                        if (button.dataset.action === 'reject') rejectRequest(id);
+                    });
+                });
+            }
+
+            function approveRequest(id) {
+                const peminjaman = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]');
+                const target = peminjaman.find((item) => Number(item.id) === Number(id));
+                if (!target) return;
+
+                const laptop = getLaptopById(target.laptopId);
+                if (!laptop || laptop.status !== 'Tersedia') {
+                    showToast('Laptop tidak tersedia untuk disetujui.', 'error');
+                    return;
+                }
+
+                target.status = 'Disetujui';
+                target.tanggalPinjam = target.tanggalPinjam || getCurrentDate();
+                target.tanggalRencanaKembali = target.tanggalRencanaKembali || getCurrentDate();
+                target.petugasId = session.userId;
+
+                const laptops = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const laptopIndex = laptops.findIndex((item) => Number(item.id) === Number(target.laptopId));
+                laptops[laptopIndex].status = 'Dipinjam';
+                localStorage.setItem(STORAGE_KEYS.laptops, JSON.stringify(laptops));
+
+                localStorage.setItem(STORAGE_KEYS.peminjaman, JSON.stringify(peminjaman));
+                loadTable();
+                showToast('Permintaan peminjaman disetujui.', 'success');
+            }
+
+            function rejectRequest(id) {
+                const peminjaman = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]');
+                const target = peminjaman.find((item) => Number(item.id) === Number(id));
+                if (!target) return;
+
+                target.status = 'Ditolak';
+                target.petugasId = session.userId;
+                localStorage.setItem(STORAGE_KEYS.peminjaman, JSON.stringify(peminjaman));
+                loadTable();
+                showToast('Permintaan peminjaman ditolak.', 'warning');
+            }
+
+            renderPageShell({
+                role: 'petugas',
+                title: 'Permintaan Peminjaman',
+                subtitle: 'Tinjau dan proses permintaan',
+                currentPage: 'peminjaman.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari permintaan..." />
+              </div>
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">Kode</th>
+                        <th class="pb-3">Siswa</th>
+                        <th class="pb-3">Laptop</th>
+                        <th class="pb-3">Tanggal</th>
+                        <th class="pb-3">Keperluan</th>
+                        <th class="pb-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

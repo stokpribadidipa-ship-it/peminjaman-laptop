@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Laptop Petugas | PinjamLaptop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['petugas']);
+            if (!session) return;
+
+            function loadTable() {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const search = document.getElementById('searchInput')?.value || '';
+                const filtered = data.filter((item) => !search || [item.kode, item.nama, item.merk, item.lokasi].some((value) => String(value).toLowerCase().includes(search.toLowerCase())));
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => `
+            <tr class="border-t border-slate-200 text-sm">
+              <td class="py-3"><img src="${getLaptopImageUrl(item)}" alt="${item.merk} ${item.model}" class="h-12 w-16 rounded-lg object-cover" /></td>
+              <td class="py-3">${item.kode}</td>
+              <td class="py-3">${item.nama}</td>
+              <td class="py-3">${item.merk}</td>
+              <td class="py-3">${item.model}</td>
+              <td class="py-3"><span class="badge ${getStatusClass(item.status)}">${item.status}</span></td>
+              <td class="py-3">${item.kondisi}</td>
+              <td class="py-3">${item.lokasi}</td>
+            </tr>
+          `).join('');
+            }
+
+            renderPageShell({
+                role: 'petugas',
+                title: 'Data Laptop',
+                subtitle: 'Pantau inventaris laptop',
+                currentPage: 'laptop.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari laptop..." />
+              </div>
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">Gambar</th>
+                        <th class="pb-3">Kode</th>
+                        <th class="pb-3">Nama</th>
+                        <th class="pb-3">Merk</th>
+                        <th class="pb-3">Model</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Kondisi</th>
+                        <th class="pb-3">Lokasi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

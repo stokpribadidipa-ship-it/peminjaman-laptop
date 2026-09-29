@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Siswa | PinjamLaptop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['admin']);
+            if (!session) return;
+
+            const file = 'siswa.html';
+
+            function loadTable() {
+                const search = document.getElementById('searchInput')?.value || '';
+                const filter = document.getElementById('filterStatus')?.value || 'Semua';
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.siswa) || '[]');
+
+                const filtered = data.filter((item) => {
+                    const matchesSearch = !search || [item.nis, item.nama, item.kelas, item.jurusan].some((value) => String(value).toLowerCase().includes(search.toLowerCase()));
+                    const matchesStatus = filter === 'Semua' || item.status === filter;
+                    return matchesSearch && matchesStatus;
+                });
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => `
+            <tr class="border-t border-slate-200 text-sm">
+              <td class="py-3">${item.id}</td>
+              <td class="py-3">${item.nis}</td>
+              <td class="py-3">${item.nama}</td>
+              <td class="py-3">${item.kelas}</td>
+              <td class="py-3">${item.jurusan}</td>
+              <td class="py-3">${item.username}</td>
+              <td class="py-3">${getStatusBadge(item.status)}</td>
+              <td class="py-3">
+                <div class="flex gap-2">
+                  <button type="button" class="icon-action rounded-lg bg-blue-50 text-blue-700" data-action="detail" data-id="${item.id}" title="Detail siswa" aria-label="Detail siswa"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                  <button type="button" class="icon-action rounded-lg bg-amber-50 text-amber-700" data-action="edit" data-id="${item.id}" title="Edit siswa" aria-label="Edit siswa"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+                  <button type="button" class="icon-action rounded-lg bg-red-50 text-red-700" data-action="delete" data-id="${item.id}" title="Hapus siswa" aria-label="Hapus siswa"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+
+                document.querySelectorAll('[data-action]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        const action = button.dataset.action;
+                        if (action === 'detail') showDetail(id);
+                        if (action === 'edit') openForm(id);
+                        if (action === 'delete') deleteRecord(id);
+                    });
+                });
+            }
+
+            function showDetail(id) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.siswa) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                if (!item) return;
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+            <div class="modal-panel w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">Detail Siswa</h3>
+                <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <div class="space-y-3 text-sm text-slate-600">
+                <div class="grid grid-cols-2 gap-3">
+                  <div><p class="text-slate-500">ID</p><p class="font-semibold text-slate-800">${item.id}</p></div>
+                  <div><p class="text-slate-500">NIS</p><p class="font-semibold text-slate-800">${item.nis}</p></div>
+                  <div><p class="text-slate-500">Nama</p><p class="font-semibold text-slate-800">${item.nama}</p></div>
+                  <div><p class="text-slate-500">Kelas</p><p class="font-semibold text-slate-800">${item.kelas}</p></div>
+                  <div><p class="text-slate-500">Jurusan</p><p class="font-semibold text-slate-800">${item.jurusan}</p></div>
+                  <div><p class="text-slate-500">Username</p><p class="font-semibold text-slate-800">${item.username}</p></div>
+                  <div class="col-span-2"><p class="text-slate-500">Status</p><p class="font-semibold text-slate-800">${item.status}</p></div>
+                </div>
+              </div>
+            </div>
+          `;
+                document.body.appendChild(modal);
+                modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+                lucide.createIcons();
+            }
+
+            function openForm(id = null) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.siswa) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+            <div class="modal-panel w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">${id ? 'Edit Siswa' : 'Tambah Siswa'}</h3>
+                <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <form id="formSiswa" class="space-y-4">
+                <div class="form-grid">
+                  <div>
+                    <label class="label-text">NIS</label>
+                    <input name="nis" value="${item?.nis || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Nama</label>
+                    <input name="nama" value="${item?.nama || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Kelas</label>
+                    <input name="kelas" value="${item?.kelas || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Jurusan</label>
+                    <input name="jurusan" value="${item?.jurusan || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Username</label>
+                    <input name="username" value="${item?.username || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Status</label>
+                    <select name="status" class="select-field" required>
+                      <option value="Aktif" ${item?.status === 'Aktif' ? 'selected' : ''}>Aktif</option>
+                      <option value="Nonaktif" ${item?.status === 'Nonaktif' ? 'selected' : ''}>Nonaktif</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                  <button type="button" class="close-modal rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Batal</button>
+                  <button type="submit" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white">${id ? 'Simpan Perubahan' : 'Tambah Siswa'}</button>
+                </div>
+              </form>
+            </div>
+          `;
+                document.body.appendChild(modal);
+
+                modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+                modal.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', () => modal.remove()));
+
+                modal.querySelector('#formSiswa').addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    const formData = new FormData(event.target);
+                    const payload = Object.fromEntries(formData.entries());
+
+                    if (!payload.nis || !payload.nama || !payload.kelas || !payload.jurusan || !payload.username) {
+                        showToast('Semua field wajib diisi.', 'error');
+                        return;
+                    }
+
+                    const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.siswa) || '[]');
+
+                    if (id) {
+                        const index = data.findIndex((entry) => Number(entry.id) === Number(id));
+                        data[index] = { ...data[index], ...payload };
+                    } else {
+                        data.push({ id: getNextId(data), ...payload });
+                    }
+
+                    localStorage.setItem(STORAGE_KEYS.siswa, JSON.stringify(data));
+                    modal.remove();
+                    loadTable();
+                    showToast(id ? 'Data siswa berhasil diperbarui.' : 'Data siswa berhasil ditambahkan.', 'success');
+                });
+
+                lucide.createIcons();
+            }
+
+            function deleteRecord(id) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.siswa) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                if (!item) return;
+
+                const confirmed = window.confirm(`Hapus siswa ${item.nama}?`);
+                if (!confirmed) return;
+
+                const filtered = data.filter((entry) => Number(entry.id) !== Number(id));
+                localStorage.setItem(STORAGE_KEYS.siswa, JSON.stringify(filtered));
+                loadTable();
+                showToast('Data siswa berhasil dihapus.', 'success');
+            }
+
+            renderPageShell({
+                role: 'admin',
+                title: 'Data Siswa',
+                subtitle: 'Kelola informasi siswa',
+                currentPage: file,
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                    <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari siswa..." />
+                    <select id="filterStatus" class="select-field md:w-40">
+                      <option value="Semua">Semua Status</option>
+                      <option value="Aktif">Aktif</option>
+                      <option value="Nonaktif">Nonaktif</option>
+                    </select>
+                  </div>
+                  <button type="button" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white" id="addBtn">
+                    <span class="flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i>Tambah Siswa</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">ID</th>
+                        <th class="pb-3">NIS</th>
+                        <th class="pb-3">Nama</th>
+                        <th class="pb-3">Kelas</th>
+                        <th class="pb-3">Jurusan</th>
+                        <th class="pb-3">Username</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('addBtn').addEventListener('click', () => openForm());
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            document.getElementById('filterStatus').addEventListener('change', loadTable);
+
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

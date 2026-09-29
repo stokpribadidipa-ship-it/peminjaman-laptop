@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laptop | PinjamLaptop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['siswa']);
+            if (!session) return;
+
+            function showDetail(id) {
+                const laptop = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]').find((item) => Number(item.id) === Number(id));
+                if (!laptop) return;
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+            <div class="modal-panel w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">Detail Laptop</h3>
+                <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <img src="${getLaptopImageUrl(laptop)}" alt="${laptop.merk} ${laptop.model}" class="mb-5 h-48 w-full rounded-2xl object-cover" />
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div><p class="text-slate-500">Kode</p><p class="font-semibold text-slate-800">${laptop.kode}</p></div>
+                <div><p class="text-slate-500">Nama</p><p class="font-semibold text-slate-800">${laptop.nama}</p></div>
+                <div><p class="text-slate-500">Merk</p><p class="font-semibold text-slate-800">${laptop.merk}</p></div>
+                <div><p class="text-slate-500">Model</p><p class="font-semibold text-slate-800">${laptop.model}</p></div>
+                <div><p class="text-slate-500">Processor</p><p class="font-semibold text-slate-800">${laptop.processor}</p></div>
+                <div><p class="text-slate-500">RAM</p><p class="font-semibold text-slate-800">${laptop.ram}</p></div>
+                <div><p class="text-slate-500">Storage</p><p class="font-semibold text-slate-800">${laptop.storage}</p></div>
+                <div><p class="text-slate-500">Status</p><p class="font-semibold text-slate-800">${laptop.status}</p></div>
+                <div class="col-span-2"><p class="text-slate-500">Kondisi</p><p class="font-semibold text-slate-800">${laptop.kondisi}</p></div>
+              </div>
+            </div>
+          `;
+                document.body.appendChild(modal);
+                modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+                lucide.createIcons();
+            }
+
+            function loadTable() {
+                const laptops = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                const search = document.getElementById('searchInput')?.value || '';
+                const filtered = laptops.filter((item) => !search || [item.kode, item.nama, item.merk, item.model, item.lokasi].some((value) => String(value).toLowerCase().includes(search.toLowerCase())));
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => `
+            <tr class="border-t border-slate-200 text-sm">
+              <td class="py-3"><img src="${getLaptopImageUrl(item)}" alt="${item.merk} ${item.model}" class="h-12 w-16 rounded-lg object-cover" /></td>
+              <td class="py-3">${item.kode}</td>
+              <td class="py-3">${item.nama}</td>
+              <td class="py-3">${item.merk}</td>
+              <td class="py-3">${item.model}</td>
+              <td class="py-3"><span class="badge ${getStatusClass(item.status)}">${item.status}</span></td>
+              <td class="py-3">${item.lokasi}</td>
+              <td class="py-3">
+                <button type="button" class="icon-action rounded-lg bg-blue-50 text-blue-700" data-action="detail" data-id="${item.id}" title="Detail laptop" aria-label="Detail laptop"><i data-lucide="eye" class="h-4 w-4"></i></button>
+              </td>
+            </tr>
+          `).join('');
+
+                document.querySelectorAll('[data-action]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (button.dataset.action === 'detail') showDetail(id);
+                    });
+                });
+            }
+
+            renderPageShell({
+                role: 'siswa',
+                title: 'Laptop',
+                subtitle: 'Lihat ketersediaan laptop',
+                currentPage: 'laptop.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari laptop..." />
+              </div>
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">Gambar</th>
+                        <th class="pb-3">Kode</th>
+                        <th class="pb-3">Nama</th>
+                        <th class="pb-3">Merk</th>
+                        <th class="pb-3">Model</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Lokasi</th>
+                        <th class="pb-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

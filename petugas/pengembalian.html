@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pengembalian | PinjamLaptop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['petugas']);
+            if (!session) return;
+
+            function loadTable() {
+                const peminjaman = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]');
+                const search = document.getElementById('searchInput')?.value || '';
+                const list = peminjaman.filter((item) => ['Disetujui', 'Dipinjam'].includes(item.status));
+                const filtered = list.filter((item) => {
+                    const siswa = getSiswaById(item.siswaId);
+                    const laptop = getLaptopById(item.laptopId);
+                    return !search || [item.kode, siswa?.nama, laptop?.kode].some((value) => String(value || '').toLowerCase().includes(search.toLowerCase()));
+                });
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => {
+                    const siswa = getSiswaById(item.siswaId);
+                    const laptop = getLaptopById(item.laptopId);
+                    return `
+              <tr class="border-t border-slate-200 text-sm">
+                <td class="py-3">${item.kode}</td>
+                <td class="py-3">${siswa?.nama || '-'}</td>
+                <td class="py-3">${laptop?.kode || '-'}</td>
+                <td class="py-3"><span class="badge ${getStatusClass(item.status)}">${item.status}</span></td>
+                <td class="py-3">
+                  <button type="button" class="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium" data-action="return" data-id="${item.id}">Proses</button>
+                </td>
+              </tr>
+            `;
+                }).join('');
+
+                document.querySelectorAll('[data-action]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (button.dataset.action === 'return') processReturn(id);
+                    });
+                });
+            }
+
+            function processReturn(id) {
+                const peminjaman = JSON.parse(localStorage.getItem(STORAGE_KEYS.peminjaman) || '[]');
+                const target = peminjaman.find((item) => Number(item.id) === Number(id));
+                if (!target) return;
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+            <div class="modal-panel w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">Proses Pengembalian</h3>
+                <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <form id="returnForm" class="space-y-4">
+                <div>
+                  <label class="label-text">Kondisi Laptop</label>
+                  <select name="kondisi" class="select-field" required>
+                    <option value="Baik">Baik</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Rusak">Rusak</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label-text">Catatan</label>
+                  <textarea name="catatan" rows="4" class="textarea-field" placeholder="Catatan pengembalian"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                  <button type="button" class="close-modal rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Batal</button>
+                  <button type="submit" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white">Simpan</button>
+                </div>
+              </form>
+            </div>
+          `;
+                document.body.appendChild(modal);
+                modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+                modal.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', () => modal.remove()));
+
+                modal.querySelector('#returnForm').addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    const formData = new FormData(event.target);
+                    const kondisi = formData.get('kondisi');
+                    const catatan = formData.get('catatan') || 'Pengembalian diproses oleh petugas.';
+
+                    target.status = 'Dikembalikan';
+                    target.tanggalDikembalikan = getCurrentDate();
+                    target.petugasId = session.userId;
+
+                    const laptops = JSON.parse(localStorage.getItem(STORAGE_KEYS.laptops) || '[]');
+                    const laptopIndex = laptops.findIndex((item) => Number(item.id) === Number(target.laptopId));
+                    if (laptopIndex >= 0) {
+                        laptops[laptopIndex].status = kondisi === 'Baik' ? 'Tersedia' : kondisi;
+                        laptops[laptopIndex].kondisi = kondisi === 'Baik' ? 'Baik' : kondisi;
+                    }
+
+                    const pengembalian = JSON.parse(localStorage.getItem(STORAGE_KEYS.pengembalian) || '[]');
+                    pengembalian.push({
+                        id: getNextId(pengembalian),
+                        peminjamanId: target.id,
+                        kondisi,
+                        catatan,
+                        tanggal: getCurrentDate(),
+                        petugasId: session.userId
+                    });
+
+                    localStorage.setItem(STORAGE_KEYS.peminjaman, JSON.stringify(peminjaman));
+                    localStorage.setItem(STORAGE_KEYS.laptops, JSON.stringify(laptops));
+                    localStorage.setItem(STORAGE_KEYS.pengembalian, JSON.stringify(pengembalian));
+                    modal.remove();
+                    loadTable();
+                    showToast('Pengembalian berhasil diproses.', 'success');
+                });
+
+                lucide.createIcons();
+            }
+
+            renderPageShell({
+                role: 'petugas',
+                title: 'Pengembalian',
+                subtitle: 'Proses pengembalian laptop',
+                currentPage: 'pengembalian.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari peminjaman..." />
+              </div>
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">Kode</th>
+                        <th class="pb-3">Siswa</th>
+                        <th class="pb-3">Laptop</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>

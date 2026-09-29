@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Petugas | PinjamLaptop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+
+<body>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/components.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = requireAuth(['admin']);
+            if (!session) return;
+
+            function loadTable() {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.petugas) || '[]');
+                const search = document.getElementById('searchInput')?.value || '';
+                const filtered = data.filter((item) => {
+                    const matchesSearch = !search || [item.nip, item.nama, item.username].some((value) => String(value).toLowerCase().includes(search.toLowerCase()));
+                    return matchesSearch;
+                });
+
+                document.getElementById('tableBody').innerHTML = filtered.map((item) => `
+            <tr class="border-t border-slate-200 text-sm">
+              <td class="py-3">${item.id}</td>
+              <td class="py-3">${item.nip}</td>
+              <td class="py-3">${item.nama}</td>
+              <td class="py-3">${item.username}</td>
+              <td class="py-3">${getStatusBadge(item.status)}</td>
+              <td class="py-3">
+                <div class="flex gap-2">
+                  <button type="button" class="icon-action rounded-lg bg-amber-50 text-amber-700" data-action="edit" data-id="${item.id}" title="Edit petugas" aria-label="Edit petugas"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+                  <button type="button" class="icon-action rounded-lg bg-red-50 text-red-700" data-action="delete" data-id="${item.id}" title="Hapus petugas" aria-label="Hapus petugas"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+
+                document.querySelectorAll('[data-action]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        const action = button.dataset.action;
+                        if (action === 'edit') openForm(id);
+                        if (action === 'delete') deleteRecord(id);
+                    });
+                });
+            }
+
+            function openForm(id = null) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.petugas) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                const modal = document.createElement('div');
+                modal.className = 'modal-backdrop flex items-center justify-center p-4';
+                modal.innerHTML = `
+            <div class="modal-panel w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">${id ? 'Edit Petugas' : 'Tambah Petugas'}</h3>
+                <button type="button" class="close-modal p-2 rounded-lg bg-slate-100 text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <form id="formPetugas" class="space-y-4">
+                <div class="form-grid">
+                  <div>
+                    <label class="label-text">NIP</label>
+                    <input name="nip" value="${item?.nip || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Nama</label>
+                    <input name="nama" value="${item?.nama || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Username</label>
+                    <input name="username" value="${item?.username || ''}" class="input-field" required />
+                  </div>
+                  <div>
+                    <label class="label-text">Status</label>
+                    <select name="status" class="select-field" required>
+                      <option value="Aktif" ${item?.status === 'Aktif' ? 'selected' : ''}>Aktif</option>
+                      <option value="Nonaktif" ${item?.status === 'Nonaktif' ? 'selected' : ''}>Nonaktif</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                  <button type="button" class="close-modal rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Batal</button>
+                  <button type="submit" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white">${id ? 'Simpan Perubahan' : 'Tambah Petugas'}</button>
+                </div>
+              </form>
+            </div>
+          `;
+                document.body.appendChild(modal);
+                modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+                modal.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', () => modal.remove()));
+
+                modal.querySelector('#formPetugas').addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    const formData = new FormData(event.target);
+                    const payload = Object.fromEntries(formData.entries());
+
+                    if (!payload.nip || !payload.nama || !payload.username) {
+                        showToast('Semua field wajib diisi.', 'error');
+                        return;
+                    }
+
+                    const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.petugas) || '[]');
+
+                    if (id) {
+                        const index = data.findIndex((entry) => Number(entry.id) === Number(id));
+                        data[index] = { ...data[index], ...payload };
+                    } else {
+                        data.push({ id: getNextId(data), ...payload });
+                    }
+
+                    localStorage.setItem(STORAGE_KEYS.petugas, JSON.stringify(data));
+                    modal.remove();
+                    loadTable();
+                    showToast(id ? 'Data petugas berhasil diperbarui.' : 'Data petugas berhasil ditambahkan.', 'success');
+                });
+
+                lucide.createIcons();
+            }
+
+            function deleteRecord(id) {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.petugas) || '[]');
+                const item = data.find((entry) => Number(entry.id) === Number(id));
+                if (!item) return;
+
+                const confirmed = window.confirm(`Hapus petugas ${item.nama}?`);
+                if (!confirmed) return;
+
+                const filtered = data.filter((entry) => Number(entry.id) !== Number(id));
+                localStorage.setItem(STORAGE_KEYS.petugas, JSON.stringify(filtered));
+                loadTable();
+                showToast('Data petugas berhasil dihapus.', 'success');
+            }
+
+            renderPageShell({
+                role: 'admin',
+                title: 'Data Petugas',
+                subtitle: 'Kelola petugas laboratorium',
+                currentPage: 'petugas.html',
+                content: `
+            <div class="space-y-4">
+              <div class="card rounded-2xl p-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <input id="searchInput" type="text" class="input-field md:w-72" placeholder="Cari petugas..." />
+                  <button type="button" class="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white" id="addBtn">
+                    <span class="flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i>Tambah Petugas</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="card rounded-2xl p-4">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr class="text-left text-sm text-slate-500">
+                        <th class="pb-3">ID</th>
+                        <th class="pb-3">NIP</th>
+                        <th class="pb-3">Nama</th>
+                        <th class="pb-3">Username</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `
+            });
+
+            document.getElementById('addBtn').addEventListener('click', () => openForm());
+            document.getElementById('searchInput').addEventListener('input', loadTable);
+            loadTable();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+
+</html>
